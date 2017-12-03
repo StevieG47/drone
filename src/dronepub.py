@@ -3,39 +3,58 @@
 import roslib
 import rospy
 import math
+import tf
 from std_msgs.msg import String
 from std_msgs.msg import Char
 from std_msgs.msg import Empty
-import tf
+from sensor_msgs.msg import Imu
 from geometry_msgs.msg import Twist
 from geometry_msgs.msg import Vector3
-from sensor_msgs.msg import Imu
 from ardrone_autonomy.msg import Navdata
 
-rospy.init_node('talker', anonymous=True)
-#vel_pub = rospy.Publisher('cmd_vel', Twist, queue_size=1, latch=true)
-takeoff_pub = rospy.Publisher('ardrone/takeoff', Empty, queue_size=1, latch=True)
-land_pub = rospy.Publisher('ardrone/land', Empty, queue_size=10)
+#Variables initialized
 cmd_vel = Twist()
 nav_data = Navdata()
 imu_data = Imu()
-takeoff=Empty()
-land=Empty()
-takeoff_pub.publish(takeoff)
-def talker():
-   # rospy.init_node('talker', anonymous=True)
-    rospy.Subscriber("ardrone/navdata", Navdata, nav_callback)
-    rospy.Subscriber("ardrone/imu", Imu, imu_callback)
+empty=Empty()
+
+def main():
+    #Intialize the ROS Node
+    rospy.init_node('drone_control', anonymous=True)
+
+    #Publishers Initialized
+    vel_pub = rospy.Publisher('cmd_vel', Twist, queue_size=10, latch=True)
+    takeoff_pub = rospy.Publisher('ardrone/takeoff', Empty, queue_size=1, latch=True)
+    land_pub = rospy.Publisher('ardrone/land', Empty, queue_size=1, latch=True)
+    reset_pub = rospy.Publisher('ardrone/reset', Empty, queue_size=1, latch=True)
+
+    
+    #TF listener initialized
     listener = tf.TransformListener()
-    #rospy.loginfo(rospy.get_caller_id())
-    rate = rospy.Rate(1) # 10hz
-   # takeoff_pub.publish(takeoff)
+
+    #Reset the drone 
+    rospy.loginfo("Drone Resetting: Please step away")   
+    reset_pub.publish(empty)
+    rospy.sleep(5.0)
+    
+    #Takeoff the drone first
+    rospy.loginfo("Drone taking off")   
+    takeoff_pub.publish(empty)
+    rospy.sleep(5.0)
+
+
+    #The Control loop for navigation
     while not rospy.is_shutdown():
         try:
             (trans,rot) = listener.lookupTransform('ardrone/base_link', 'ardrone/front', rospy.Time(0))
         except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
             continue
-       ## hello_str = "hello world %s" % rospy.get_time()
+
+        #Subscribers Initialized
+        rospy.Subscriber("ardrone/navdata", Navdata, nav_callback)
+        rospy.Subscriber("ardrone/imu", Imu, imu_callback)
+
+        ## hello_str = "hello world %s" % rospy.get_time()
       #  cmd_vel.linear.x=0.0    
       #  cmd_vel.linear.y=0.0    
       #  cmd_vel.linear.z=0.0    
@@ -63,15 +82,13 @@ def talker():
          
 
 def nav_callback(data):
-   # rospy.loginfo(rospy.get_caller_id() + "I heard %s", data.temp)
     nav_data = data
 
 def imu_callback(data):
-   # rospy.loginfo(rospy.get_caller_id() + "I heard %s", data.data)
     imu_data = data
 
 if __name__ == '__main__':
     try:
-        talker()
+        main()
     except rospy.ROSInterruptException:
         pass
