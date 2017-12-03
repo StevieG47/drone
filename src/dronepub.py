@@ -10,12 +10,14 @@ from std_msgs.msg import Empty
 from sensor_msgs.msg import Imu
 from geometry_msgs.msg import Twist
 from geometry_msgs.msg import Vector3
+from nav_msgs.msg import Odometry
 from ardrone_autonomy.msg import Navdata
 
 #Variables initialized
 cmd_vel = Twist()
 nav_data = Navdata()
 imu_data = Imu()
+odom = Odometry()
 empty=Empty()
 
 def main():
@@ -52,6 +54,7 @@ def main():
 
         #Subscribers Initialized
         rospy.Subscriber("ardrone/navdata", Navdata, nav_callback)
+        rospy.Subscriber("ardrone/odometry", Odometry, odom_callback)
         rospy.Subscriber("ardrone/imu", Imu, imu_callback)
 
         ## hello_str = "hello world %s" % rospy.get_time()
@@ -86,6 +89,9 @@ def nav_callback(data):
 
 def imu_callback(data):
     imu_data = data
+
+def odom_callback(data):
+    odom = data
 
 if __name__ == '__main__':
     try:
