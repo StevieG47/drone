@@ -30,6 +30,8 @@ cy = 0.0
 cz = 0.0
 markerFlag = 0
 statusFlag = 1
+rot=0.0
+trans=0.0
 
 def main():
     #Intialize the ROS Node
@@ -42,7 +44,7 @@ def main():
     reset_pub = rospy.Publisher('ardrone/reset', Empty, queue_size=1, latch=True)
     
     # ar subscribe
-    rospy.Subsciber("ar_pose_marker", AlvarMarkers, ar_callback )
+ #   rospy.Subscriber("ar_pose_marker", AlvarMarkers, ar_callback )
     
     #TF listener initialized
     listener = tf.TransformListener()
@@ -50,25 +52,29 @@ def main():
     #Reset the drone 
     rospy.loginfo("Drone Resetting: Please step away")   
    # reset_pub.publish(empty)
-    rospy.sleep(5.0)
+    rospy.sleep(1.0)
     
     #Takeoff the drone first
     rospy.loginfo("Drone taking off")   
    # takeoff_pub.publish(empty)
-    rospy.sleep(5.0)
+    rospy.sleep(1.0)
 
 
     #The Control loop for navigation
     while not rospy.is_shutdown():
-        try:
-            (trans,rot) = listener.lookupTransform('ardrone/base_link', 'ardrone/base_frontcam', rospy.Time(0))
-        except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
-            continue
+#       # try:
+        #    (trans,rot) = listener.lookupTransform('ardrone/base_link', 'ardrone/base_frontcam', rospy.Time(0))
+        #except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
+        #    rospy.loginfo("exception")   
+        #    continue
 
+    #    (trans,rot) = listener.lookupTransform('ardrone/base_link', 'ardrone/base_frontcam', rospy.Time(0))
         #Subscribers Initialized
+        rospy.sleep(1.0)
         rospy.Subscriber("ardrone/navdata", Navdata, nav_callback)
         rospy.Subscriber("ardrone/odometry", Odometry, odom_callback)
         rospy.Subscriber("ardrone/imu", Imu, imu_callback)
+        rospy.Subscriber("ar_pose_marker", AlvarMarkers, ar_callback )
         
         if markerFlag == 0:
             rospy.loginfo("Searching")
