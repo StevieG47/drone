@@ -33,19 +33,9 @@ statusFlag = 1
 rot = np.array([0.0150814330344, -0.020624200866, -0.544323169626, 0.838486421908])
 trans = np.array([-0.0841731084939, 0.133747005225, 0.0])
 
-# quoternion to rotation matrix
 def quatToRot(x, y, z, w):
     R = np.zeros(3, 3)
-    R[0][0] = 1-2*y**-2*z**2
-    R[0][1] = 2*x*y-2*z*w
-    R[0][2] = 2*x*z+2*y*w
-    R[1][0] = 2*x*y+2*z*w
-    R[1][1] = 1-2*x**2-2*z**2
-    R[1][2] = 2*y*z-2*x*w
-    R[2][0] = 2*x*z-2*y*w
-    R[2][1] = 2*y*z+2*x*w
-    R[2][2] = 1-2*x**2-2*y**2
-    return R
+    
 
 def main():
     #Intialize the ROS Node
@@ -139,12 +129,10 @@ def ar_callback(data):
         cy = (t0.y + t1.y + t2.y + t3.y)/4
         cz = (t0.z + t1.z + t2.z + t3.z)/4
         
-        c = np.array([cx, cy, cz])
-	# if rotation is quoternion, convert to matrix
-	if len(rot) == 4:
-      		rot = quatToRot(rot[0], rot[1], rot[2], rot[3])
-        c = np.dot(c, rot) + trans #might need to adjust
+        c = numpy.array([cx, cy, cz])
+        c = numpy.dot(c, rot) + trans#might need to adjust
         rospy.loginfo(c)
+        
         markerFlag = 1
     else:
         markerFlag= 0
