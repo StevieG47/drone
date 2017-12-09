@@ -52,6 +52,8 @@ class Drone:
     z_pos_acc_stage_2 = .3
 
     speed_stage_1 = .2
+    speed_stage_2 = .1
+    speed_stage_3 = .1
 
     def __init__(self):
         set_vel(self,x,y,z)
