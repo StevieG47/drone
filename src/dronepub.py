@@ -16,7 +16,7 @@ from nav_msgs.msg import Odometry
 from ardrone_autonomy.msg import Navdata
 from ar_track_alvar_msgs.msg import AlvarMarkers, AlvarMarker
 
-
+from drone import Drone
 
 
 
@@ -43,6 +43,9 @@ init_goalx = 0
 init_goaly = 0
 init_goalz = 0
 fist_sighting = True
+drone = Drone()
+
+center_pub = rospy.Publisher('center_co', Vector3, queue_size=10, latch=True)
 
 
 # quoternion to rotation matrix
@@ -53,6 +56,26 @@ def quatToRot(x, y, z, w):
     return R
 
 def x_y_adjustment():
+    pass
+
+
+def quaternion_to_euler_angle(w, x, y, z):
+	ysqr = y * y
+
+	t0 = +2.0 * (w * x + y * z)
+	t1 = +1.0 - 2.0 * (x * x + ysqr)
+	X = math.degrees(math.atan2(t0, t1))
+
+	t2 = +2.0 * (w * y - z * x)
+	t2 = +1.0 if t2 > +1.0 else t2
+	t2 = -1.0 if t2 < -1.0 else t2
+	Y = math.degrees(math.asin(t2))
+
+	t3 = +2.0 * (w * z + x * y)
+	t4 = +1.0 - 2.0 * (ysqr + z * z)
+	Z = math.degrees(math.atan2(t3, t4))
+
+	return X, Y, Z
 
 
 def main():
@@ -64,8 +87,6 @@ def main():
     takeoff_pub = rospy.Publisher('ardrone/takeoff', Empty, queue_size=1, latch=True)
     land_pub = rospy.Publisher('ardrone/land', Empty, queue_size=1, latch=True)
     reset_pub = rospy.Publisher('ardrone/reset', Empty, queue_size=1, latch=True)
-
-    drone = Drone()
 
     # ar subscribe
  #   rospy.Subscriber("ar_pose_marker", AlvarMarkers, ar_callback )
@@ -105,6 +126,8 @@ def main():
         #rospy.loginfo(['in main X', adjX, ' Y', adjY, ' Z', adjHeight, ' Marker', markerFlag])
 
 
+
+
         if markerFlag == 0:
             rospy.loginfo("Searching")
             cmd_vel.angular.z  = 0.1
@@ -131,7 +154,7 @@ def main():
             if not testing:
                 vel_pub.publish(cmd_vel)
 
-        if adjustHeight == 1:
+        if adjHeight == 1:
             pass
 
 
@@ -176,7 +199,8 @@ def ar_callback(data):
     global init_goaly
     global init_goalz
     global first_sighting
-
+    global drone
+    global center_pub
     ar_data = data
     rot = np.array([0.0150814330344, -0.020624200866, -0.544323169626, 0.838486421908])
     trans = np.array([-0.0841731084939, 0.133747005225, 0.0])
@@ -194,35 +218,42 @@ def ar_callback(data):
         t2 = ar_data.markers[2].pose.pose.position
         t3 = ar_data.markers[3].pose.pose.position
 
+        quat_0 = ar_data.markers[0].pose.pose.orientation
+        quat_1 = ar_data.markers[1].pose.pose.orientation
+        quat_2 = ar_data.markers[2].pose.pose.orientation
+        quat_3 = ar_data.markers[3].pose.pose.orientation
+
+        a, yaw_0, b = quaternion_to_euler_angle(quat_0.w, quat_0.x, quat_0.y, quat_0.z)
+        a, yaw_1, b = quaternion_to_euler_angle(quat_1.w, quat_1.x, quat_1.y, quat_1.z)
+        a, yaw_2, b = quaternion_to_euler_angle(quat_2.w, quat_2.x, quat_2.y, quat_2.z)
+        a, yaw_3, b = quaternion_to_euler_angle(quat_3.w, quat_3.x, quat_3.y, quat_3.z)
+
+        rospy.loginfo(["yaw avg: ", np.mean([yaw_0, yaw_1, yaw_2, yaw_3])])
+
         cx = -1*(t0.x + t1.x + t2.x + t3.x)/4
         cz = (t0.y + t1.y + t2.y + t3.y)/4
         cy = (t0.z + t1.z + t2.z + t3.z)/4
 
         c = np.array([cx, cy, cz])
+
     # if rotation is quoternion, convert to matrix
         if len(rot) == 4:
             rot = quatToRot(rot[0], rot[1], rot[2], rot[3])
             center = np.dot(rot, c) + trans #might need to adjust
-
+            center_pub.publish(Vector3(center[0],center[1],center[2]))
         centerx = c[0]
         centery = c[1]
         centerz = c[2]
         rospy.loginfo(cz)
 
-        drone.set_center(centerx, centery, centerz)
+        drone.update(centerx, centery, centerz, yaw)
 
-
-        if first_sighting:
-            init_goalx = 0
-            init_goaly = centery /2
-            init_goalz = centerz
-            statusFlag = 1
-            first_sighting = False
+        rospy.loginfo('current stage: ' + str(drone.stage) + ' current vel: ' + str(drone.get_vel()))
 
 
         markerFlag = 1
 
-        if abs()
+        #if abs()
 
         # if abs(centerz) > .2:
         #     adjHeight = 1
@@ -232,35 +263,6 @@ def ar_callback(data):
         #     if not testing:
         #         vel_pub.publish(cmd_vel)
 
-        if statusFlag == 1 and not first_sighting:
-
-        if adjX == 0 and abs(centerx) > .3: #might have to adjust.
-            adjX = 1
-        else:
-            adjX = 0
-            cmd_vel.linear.x = 0
-            if not testing:
-                vel_pub.publish(cmd_vel)
-
-        if adjY == 0 and abs(centery) > 3.5:
-            adjY = 1
-        else:
-            adjY = 0
-            cmd_vel.linear.y = 0
-            if not testing:
-                vel_pub.publish(cmd_vel)
-
-
-
-        if abs(centerz) < .2 and abs(centerx) < .2 and abs(centery) < 1.5:
-            # fix orientation
-
-            rospy.loginfo('close to window fix orientation')
-
-
-
-    else:
-        markerFlag= 0
 
 def nav_callback(data):
     nav_data = data
