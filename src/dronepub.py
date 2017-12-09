@@ -19,7 +19,6 @@ from ar_track_alvar_msgs.msg import AlvarMarkers, AlvarMarker
 from drone import Drone
 
 
-
 #Variables initialized
 cmd_vel = Twist()
 nav_data = Navdata()
@@ -44,6 +43,9 @@ init_goaly = 0
 init_goalz = 0
 fist_sighting = True
 drone = Drone()
+
+fuck = 0
+reset_fuck = 0
 
 center_pub = rospy.Publisher('center_co', Vector3, queue_size=10, latch=True)
 
@@ -88,9 +90,6 @@ def main():
     land_pub = rospy.Publisher('ardrone/land', Empty, queue_size=1, latch=True)
     reset_pub = rospy.Publisher('ardrone/reset', Empty, queue_size=1, latch=True)
 
-    # ar subscribe
- #   rospy.Subscriber("ar_pose_marker", AlvarMarkers, ar_callback )
-
     #TF listener initialized
     listener = tf.TransformListener()
 
@@ -109,14 +108,6 @@ def main():
 
     #The Control loop for navigation
     while not rospy.is_shutdown():
-#       # try:
-        #    (trans,rot) = listener.lookupTransform('ardrone/base_link', 'ardrone/base_frontcam', rospy.Time(0))
-        #except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
-        #    rospy.loginfo("exception")
-        #    continue
-
-    #    (trans,rot) = listener.lookupTransform('ardrone/base_link', 'ardrone/base_frontcam', rospy.Time(0))
-        #Subscribers Initialized
         rospy.sleep(1.0)
         rospy.Subscriber("ardrone/navdata", Navdata, nav_callback)
         rospy.Subscriber("ardrone/odometry", Odometry, odom_callback)
@@ -125,67 +116,14 @@ def main():
 
         #rospy.loginfo(['in main X', adjX, ' Y', adjY, ' Z', adjHeight, ' Marker', markerFlag])
 
-
-
-
         if markerFlag == 0:
             rospy.loginfo("Searching")
-            cmd_vel.angular.z  = 0.1
+            cmd_vel.angular.z  = 0.2
             rospy.loginfo("Rotating")
             if not testing:
                 vel_pub.publish(cmd_vel)
-        if adjX == 1:
-            rospy.loginfo("adjusting X")
-            if centerx > 0:
-                cmd_vel.linear.x = -0.1
-            else:
-                cmd_vel.linear.x = 0.1
+                rospy.sleep(0.1) #need to adjust %%%%%%%%%%%%%%%%
 
-            if not testing:
-                vel_pub.publish(cmd_vel)
-
-        if adjY == 1:
-            rospy.loginfo("adjusting Y")
-            if centery > 3.5:
-                cmd_vel.linear.y = 0.1
-            else:
-                cmd_vel.linear.y = -0.1
-
-            if not testing:
-                vel_pub.publish(cmd_vel)
-
-        if adjHeight == 1:
-            pass
-
-
-
-
-
-        ## hello_str = "hello world %s" % rospy.get_time()
-      #  cmd_vel.linear.x=0.0
-      #  cmd_vel.linear.y=0.0
-      #  cmd_vel.linear.z=0.0
-      #  cmd_vel.angular.x=0.0
-      #  cmd_vel.angular.y=0.0
-      #  cmd_vel.angular.z=0.0
-      #  rospy.loginfo(cmd_vel)
-      #  vel_pub.publish(cmd_vel)
-      #  rate.sleep(2.0)
-
-      #  cmd_vel.linear.x=0.0
-      #  cmd_vel.linear.y=0.0
-      #  cmd_vel.linear.z=0.0
-      #  cmd_vel.angular.x=0.0
-      #  cmd_vel.angular.y=0.0
-      #  cmd_vel.angular.z=0.0
-      #  rospy.loginfo(cmd_vel)
-      #  vel_pub.publish(cmd_vel)
-       # rate.sleep(2.0)
-      #  takeoff_pub.publish(takeoff)
-       # rate.sleep(5.0)
-       # land_pub.publish(land)
-       # rate.sleep(5.0)
-       # rospy.loginfo(rospy.get_caller_id())
 def ar_callback(data):
     global markerFlag
     global statusFlag
@@ -201,11 +139,13 @@ def ar_callback(data):
     global first_sighting
     global drone
     global yaw
+    global fuck
+    global reset_fuck
     global center_pub
     ar_data = data
     rot = np.array([0.0150814330344, -0.020624200866, -0.544323169626, 0.838486421908])
     trans = np.array([-0.0841731084939, 0.133747005225, 0.0])
-
+    #rospy.sleep(.1)
     #rospy.loginfo(ar_data.markers)
     #rospy.loginfo(ar_data)
     #rospy.loginfo(len(ar_data.markers))
@@ -213,7 +153,8 @@ def ar_callback(data):
     #rospy.loginfo(['in callback X', adjX, ' Y', adjY, ' Z', adjHeight, ' Marker', markerFlag])
 
 
-    if len(ar_data.markers) == 4:
+    if len(ar_data.markers) >= 4:
+        fuck = fuck + 1
         t0 = ar_data.markers[0].pose.pose.position
         t1 = ar_data.markers[1].pose.pose.position
         t2 = ar_data.markers[2].pose.pose.position
@@ -231,9 +172,9 @@ def ar_callback(data):
 
         #rospy.loginfo(["yaw avg: ", np.mean([yaw_0, yaw_1, yaw_2, yaw_3])])
         yaw = np.mean([yaw_0, yaw_1, yaw_2, yaw_3])
-        cx = -1*(t0.x + t1.x + t2.x + t3.x)/4
+        cy = -1*(t0.x + t1.x + t2.x + t3.x)/4
         cz = (t0.y + t1.y + t2.y + t3.y)/4
-        cy = (t0.z + t1.z + t2.z + t3.z)/4
+        cx = (t0.z + t1.z + t2.z + t3.z)/4
 
         c = np.array([cx, cy, cz])
 
@@ -249,21 +190,85 @@ def ar_callback(data):
 
         drone.update(centerx, centery, centerz, yaw)
 
-        rospy.loginfo('current stage: ' + str(drone.stage) + ' current vel: ' + str(drone.get_vel()))
+#        rospy.loginfo('current stage: ' + str(drone.stage) + ' current vel: ' + str(drone.get_vel()))
 
 
         markerFlag = 1
+        cmd_vel.angular.z  = 0.0
+        cmd_vel.linear.x = drone.get_vel()[0]
+        cmd_vel.linear.y = drone.get_vel()[1]
+        cmd_vel.linear.z = drone.get_vel()[2]
+        cmd_vel.angular.z = drone.get_vel()[3]
+        if fuck == 10:
+            rospy.loginfo('current stage: ' + str(drone.stage) + ' current vel: ' + str(drone.get_vel()))
+            fuck = 0
 
-        #if abs()
+        if not testing:
+            vel_pub.publish(cmd_vel)
+            rospy.sleep(0.1) #need to adjust %%%%%%%%%%%%%%%%
 
-        # if abs(centerz) > .2:
-        #     adjHeight = 1
-        # else:
-        #     adjHeight = 0
-        #     cmd_vel.linear.z = 0
-        #     if not testing:
-        #         vel_pub.publish(cmd_vel)
+    if len(ar_data.markers) >= 3:
+        fuck = fuck + 1
+        t0 = ar_data.markers[0].pose.pose.position
+        t1 = ar_data.markers[1].pose.pose.position
+        t2 = ar_data.markers[2].pose.pose.position
+        #t3 = ar_data.markers[3].pose.pose.position
 
+        quat_0 = ar_data.markers[0].pose.pose.orientation
+        quat_1 = ar_data.markers[1].pose.pose.orientation
+        quat_2 = ar_data.markers[2].pose.pose.orientation
+        #quat_3 = ar_data.markers[3].pose.pose.orientation
+
+        a, yaw_0, b = quaternion_to_euler_angle(quat_0.w, quat_0.x, quat_0.y, quat_0.z)
+        a, yaw_1, b = quaternion_to_euler_angle(quat_1.w, quat_1.x, quat_1.y, quat_1.z)
+        a, yaw_2, b = quaternion_to_euler_angle(quat_2.w, quat_2.x, quat_2.y, quat_2.z)
+        #a, yaw_3, b = quaternion_to_euler_angle(quat_3.w, quat_3.x, quat_3.y, quat_3.z)
+
+        #rospy.loginfo(["yaw avg: ", np.mean([yaw_0, yaw_1, yaw_2, yaw_3])])
+
+        # TODO lets make center great again %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        yaw = np.mean([yaw_0, yaw_1, yaw_2])
+        cy = -1*(t0.x + t1.x + t2.x)/3
+        cz = (t0.y + t1.y + t2.y)/3
+        cx = (t0.z + t1.z + t2.z)/3
+
+        c = np.array([cx, cy, cz])
+
+    # if rotation is quoternion, convert to matrix
+        if len(rot) == 4:
+            rot = quatToRot(rot[0], rot[1], rot[2], rot[3])
+            center = np.dot(rot, c) + trans #might need to adjust
+        centerx = c[0]
+        centery = c[1]
+        centerz = c[2]
+        #rospy.loginfo(cz)
+        center_pub.publish(Vector3(centerx,centery,centerz))
+
+        drone.update(centerx, centery, centerz, yaw)
+
+#        rospy.loginfo('current stage: ' + str(drone.stage) + ' current vel: ' + str(drone.get_vel()))
+
+        reset_fuck = 0
+        markerFlag = 1
+        cmd_vel.angular.z  = 0.0
+        cmd_vel.linear.x = drone.get_vel()[0]
+        cmd_vel.linear.y = drone.get_vel()[1]
+        cmd_vel.linear.z = drone.get_vel()[2]
+        cmd_vel.angular.z = drone.get_vel()[3]
+        if fuck == 10:
+            rospy.loginfo('current stage: ' + str(drone.stage) + ' current vel: ' + str(drone.get_vel()))
+            fuck = 0
+
+        if not testing:
+            vel_pub.publish(cmd_vel)
+            rospy.sleep(0.1) #need to adjust %%%%%%%%%%%%%%%%
+
+    else:
+        reset_fuck = reset_fuck + 1
+        if reset_fuck == 10:
+            markerFlag = 0
+            reset_fuck = 0
+            drone.__init__()
 
 def nav_callback(data):
     nav_data = data

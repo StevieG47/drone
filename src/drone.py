@@ -32,8 +32,8 @@ if y < 2.5m:
 
 import roslib
 import rospy
-import math
 import tf
+import math
 import numpy as np
 from std_msgs.msg import String
 from std_msgs.msg import Char
@@ -71,31 +71,31 @@ class Drone:
         self.stage_x_buffer = .5
         self.stage = 0
 
-        self.x_goal_stage_1 = 3
-        self.x_goal_stage_2 = 2
+        self.x_goal_stage_1 = 4
+        self.x_goal_stage_2 = 2.5
         self.x_goal_stage_3 = 2
 
         self.y_goal = 0
         self.z_goal = 0
         self.yaw_goal = 0
 
-        self.y_pos_acc_stage_1 = .5
-        self.x_pos_acc_stage_1 = .5
+        self.y_pos_acc_stage_1 = .25
+        self.x_pos_acc_stage_1 = 0
 
-        self.y_pos_acc_stage_2 = .2
-        self.x_pos_acc_stage_2 = .2
-        self.z_pos_acc_stage_2 = .2
-        self.yaw_pos_acc_stage_2 = 10
-        self.yaw_acc_stage_2 = 10
+        self.y_pos_acc_stage_2 = .1
+        self.x_pos_acc_stage_2 = 0
+        self.z_pos_acc_stage_2 = .1
+        self.yaw_pos_acc_stage_2 = 7
+        self.yaw_acc_stage_2 = 7
 
 
-        self.y_pos_acc_stage_3 = .15
-        self.x_pos_acc_stage_3 = .15
-        self.z_pos_acc_stage_3 = .15
+        self.y_pos_acc_stage_3 = .05
+        self.x_pos_acc_stage_3 = 0
+        self.z_pos_acc_stage_3 = .05
 
-        self.speed_stage_1 = .2
-        self.speed_stage_2 = .1
-        self.speed_stage_3 = .1
+        self.speed_stage_1 = .1
+        self.speed_stage_2 = .07
+        self.speed_stage_3 = .05
 
     def set_vel(self,y,x,z, yaw):
         self.vel_y = y
@@ -138,11 +138,11 @@ class Drone:
     def update_stage(self):
         prev_stage = self.stage
 
-        if self.x > self.x_goal_stage_1 and self.stage == 1 or self.stage == 0:
+        if self.x > self.x_goal_stage_1 and (self.stage == 1 or self.stage == 0):
             self.stage = 1
-        elif self.x > self.x_goal_stage_2 and self.stage == 1 or self.stage == 2:
+        elif self.x > self.x_goal_stage_2 and (self.stage == 1 or self.stage == 2 or self.stage == 0):
             self.stage = 2
-        elif self.x_goal_stage_2 > self.x and self.stage == 2 or self.stage == 3:
+        elif self.x_goal_stage_2 > self.x and (self.stage == 2 or self.stage == 3 or self.stage == 0):
             self.stage = 3
 
         if prev_stage - self.stage != 0:
@@ -155,15 +155,15 @@ class Drone:
 
         if self.stage == 1:
             if abs(self.x - self.g_x )> self.x_pos_acc_stage_1:
-                rospy.loginfo('in stage 1: fixing x ' + str(self.g_x))
+                #rospy.loginfo('in stage 1: fixing x ' + str(self.g_x))
                 if self.x > self.g_x:
-                    self.vel_x = -1 * self.speed_stage_1# may need to change this -------------
+                    self.vel_x =  self.speed_stage_1# may need to change this -------------
                 else:
-                    self.vel_x = self.speed_stage_1
+                    self.vel_x = 0
             else:
                 self.vel_x = 0
 
-                rospy.loginfo('in stage 1: fixed x ' + str(self.g_x))
+                #rospy.loginfo('in stage 1: fixed x ' + str(self.g_x))
 
 
             # if abs(self.x - self.g_x > self.x_pos_acc_stage_1):
@@ -176,47 +176,47 @@ class Drone:
 
         elif self.stage == 2:
             if abs(self.y - self.g_y )> self.y_pos_acc_stage_2:
-                rospy.loginfo('in stage 2: fixing y ' + str(self.g_y))
+                #rospy.loginfo('in stage 2: fixing y ' + str(self.g_y))
                 if self.y > self.g_y:
-                    self.vel_y = -1 * self.speed_stage_2 # may need to change this -------------
+                    self.vel_y = 1 * self.speed_stage_2 # may need to change this -------------
                 else:
-                    self.vel_y = self.speed_stage_2
+                    self.vel_y = -1 * self.speed_stage_2
             else:
                 self.vel_y = 0
-                rospy.loginfo('in stage 2: fixed y  ' + str(self.y))
+                #rospy.loginfo('in stage 2: fixed y  ' + str(self.y))
 
                 #adjust z
                 if abs(self.z - self.g_z )> self.z_pos_acc_stage_2:
                     if self.z > self.g_z:
-                        rospy.loginfo('in stage 2: fixing z  ' + str(self.g_z))
+                #        rospy.loginfo('in stage 2: fixing z  ' + str(self.g_z))
                         self.vel_z = -1 * self.speed_stage_2 # may need to change this -------------
                     else:
                         self.vel_z = self.speed_stage_2
                 else:
                     self.vel_z = 0
-                    rospy.loginfo('in stage 2: fixed z  ' + str(self.z))
+                #    rospy.loginfo('in stage 2: fixed z  ' + str(self.z))
 
                     #adjust yaw
                     if abs(self.yaw - 0 )> self.yaw_acc_stage_2:
-                        rospy.loginfo('in stage 2: fixing yaw  ' + str(0))
+                #        rospy.loginfo('in stage 2: fixing yaw  ' + str(0))
                         if self.yaw > 0:
                             self.vel_yaw = -1 * self.speed_stage_2 # may need to change this -------------
                         else:
                             self.vel_yaw = self.speed_stage_2
                     else:
                         self.vel_yaw = 0
-                        rospy.loginfo('in stage 2: fixed yaw  ' + str(self.yaw))
+                #        rospy.loginfo('in stage 2: fixed yaw  ' + str(self.yaw))
 
                         #adjust Y
                         if abs(self.x - self.g_x) > self.x_pos_acc_stage_2:
-                            rospy.loginfo('in stage 2: fixing x  ' + str(self.g_x))
+                #            rospy.loginfo('in stage 2: fixing x  ' + str(self.g_x))
                             if self.x > self.g_x:
-                                self.vel_x = -1 * self.speed_stage_2 # may need to change this -------------
+                                self.vel_x = 1 * self.speed_stage_2 # may need to change this -------------
                             else:
-                                self.vel_x = self.speed_stage_2
+                                self.vel_x = 0
                         else:
                             self.vel_x = 0
-                            rospy.loginfo('in stage 2: fixed x  ' + str(self.x))
+                #            rospy.loginfo('in stage 2: fixed x  ' + str(self.x))
 
                             #all adjusted.
 
@@ -230,7 +230,7 @@ class Drone:
 
 
     def get_center(self):
-        return [self.y,self.x,self.z]
+        return [self.x,self.y,self.z]
 
     def get_vel(self):
-        return [self.vel_y,self.vel_x,self.vel_z, self.vel_yaw]
+        return [self.vel_x,self.vel_y,self.vel_z, self.vel_yaw]
