@@ -200,6 +200,7 @@ def ar_callback(data):
     global init_goalz
     global first_sighting
     global drone
+    global yaw
     global center_pub
     ar_data = data
     rot = np.array([0.0150814330344, -0.020624200866, -0.544323169626, 0.838486421908])
@@ -228,8 +229,8 @@ def ar_callback(data):
         a, yaw_2, b = quaternion_to_euler_angle(quat_2.w, quat_2.x, quat_2.y, quat_2.z)
         a, yaw_3, b = quaternion_to_euler_angle(quat_3.w, quat_3.x, quat_3.y, quat_3.z)
 
-        rospy.loginfo(["yaw avg: ", np.mean([yaw_0, yaw_1, yaw_2, yaw_3])])
-
+        #rospy.loginfo(["yaw avg: ", np.mean([yaw_0, yaw_1, yaw_2, yaw_3])])
+        yaw = np.mean([yaw_0, yaw_1, yaw_2, yaw_3])
         cx = -1*(t0.x + t1.x + t2.x + t3.x)/4
         cz = (t0.y + t1.y + t2.y + t3.y)/4
         cy = (t0.z + t1.z + t2.z + t3.z)/4
@@ -240,11 +241,11 @@ def ar_callback(data):
         if len(rot) == 4:
             rot = quatToRot(rot[0], rot[1], rot[2], rot[3])
             center = np.dot(rot, c) + trans #might need to adjust
-            center_pub.publish(Vector3(center[0],center[1],center[2]))
         centerx = c[0]
         centery = c[1]
         centerz = c[2]
-        rospy.loginfo(cz)
+        #rospy.loginfo(cz)
+        center_pub.publish(Vector3(centerx,centery,centerz))
 
         drone.update(centerx, centery, centerz, yaw)
 
