@@ -17,6 +17,9 @@ from ardrone_autonomy.msg import Navdata
 from ar_track_alvar_msgs.msg import AlvarMarkers, AlvarMarker
 
 
+
+
+
 #Variables initialized
 cmd_vel = Twist()
 nav_data = Navdata()
@@ -62,7 +65,7 @@ def main():
     land_pub = rospy.Publisher('ardrone/land', Empty, queue_size=1, latch=True)
     reset_pub = rospy.Publisher('ardrone/reset', Empty, queue_size=1, latch=True)
 
-
+    drone = Drone()
 
     # ar subscribe
  #   rospy.Subscriber("ar_pose_marker", AlvarMarkers, ar_callback )
@@ -205,6 +208,8 @@ def ar_callback(data):
         centery = c[1]
         centerz = c[2]
         rospy.loginfo(cz)
+
+        drone.set_center(centerx, centery, centerz)
 
 
         if first_sighting:
