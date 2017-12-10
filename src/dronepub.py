@@ -60,6 +60,8 @@ mean_vel_yaw = 0
 fuck = 0
 reset_fuck = 0
 
+done = False
+
 center_pub = rospy.Publisher('center_co', Vector3, queue_size=10, latch=True)
 
 #pseudo publisher for velocity
@@ -121,7 +123,12 @@ def main():
     #Takeoff the drone first
     rospy.loginfo("Drone taking off")
     takeoff_pub.publish(empty)
-    rospy.sleep(3.0)
+    rospy.sleep(5.0)
+    cmd_vel.linear.z  = 0.3
+    vel_pub.publish(cmd_vel)
+    rospy.sleep(2.5)
+    cmd_vel.linear.z  = 0.0
+    vel_pub.publish(cmd_vel)
 
     if not testing:
         takeoff_pub.publish(empty)
@@ -138,22 +145,51 @@ def main():
 
         #rospy.loginfo(['in main X', adjX, ' Y', adjY, ' Z', adjHeight, ' Marker', markerFlag])
 
-        if markerFlag == 0:
-            rospy.loginfo("Searching")
-            # TODO change the = to fix initial angle
-            if np.mean(mean_center_yaw) >= 0:
-                cmd_vel.angular.z  = -0.2
-            elif np.mean(mean_center_yaw) < 0:
-                cmd_vel.angular.z  = 0.2
-            else:
-                cmd_vel.angular.z  = 0.1
+        if not done:
+            if markerFlag == 0:
+                rospy.loginfo("Searching")
+                # TODO change the = to fix initial angle
+                if np.mean(mean_center_yaw) >= 0:
+                    cmd_vel.angular.z  = -0.2
+                elif np.mean(mean_center_yaw) < 0:
+                    cmd_vel.angular.z  = 0.2
+                else:
+                    cmd_vel.angular.z  = -0.1
 
-            rospy.loginfo("Rotating")
-            vel_pub.publish(cmd_vel)
-
-            if not testing:
+                rospy.loginfo("Rotating")
                 vel_pub.publish(cmd_vel)
-                rospy.sleep(0.1) #need to adjust %%%%%%%%%%%%%%%%
+
+                if not testing:
+                    vel_pub.publish(cmd_vel)
+                    rospy.sleep(0.1) #need to adjust %%%%%%%%%%%%%%%%
+
+def fly_through_and_stop():
+    global cmd_vel
+    global vel_pub
+    global mean_center_x
+    global mean_center_y
+    global mean_center_z
+    global mean_center_yaw
+
+    rospy.loginfo('done done done done done')
+    x_loc = np.mean(mean_center_x)
+    y_loc = np.mean(mean_center_y)
+    cmd_vel.linear.x = (x_loc / np.max((x_loc, y_loc)))* .05
+    cmd_vel.linear.y = (y_loc / np.max((x_loc, y_loc)))* .05
+    cmd_vel.linear.z = 0
+    cmd_vel.angular.z = 0
+
+    vel_pub.publish(cmd_vel)
+    rospy.sleep(7.0)
+
+    cmd_vel.linear.x = 0
+    cmd_vel.linear.y = 0
+    cmd_vel.linear.z = 0
+    cmd_vel.angular.z = 0
+
+    vel_pub.publish(cmd_vel)
+    #land
+
 
 def ar_callback(data):
     global markerFlag
@@ -182,186 +218,210 @@ def ar_callback(data):
     global mean_center_y
     global mean_center_z
     global mean_center_yaw
+    global done
 
-    ar_data = data
-    rot = np.array([0.0150814330344, -0.020624200866, -0.544323169626, 0.838486421908])
-    trans = np.array([-0.0841731084939, 0.133747005225, 0.0])
-    #rospy.sleep(.1)
-    #rospy.loginfo(ar_data.markers)
-    #rospy.loginfo(ar_data)
-    #rospy.loginfo(len(ar_data.markers))
+    if not done:
 
-    #rospy.loginfo(['in callback X', adjX, ' Y', adjY, ' Z', adjHeight, ' Marker', markerFlag])
+        ar_data = data
+        rot = np.array([0.0150814330344, -0.020624200866, -0.544323169626, 0.838486421908])
+        trans = np.array([-0.0841731084939, 0.133747005225, 0.0])
+        #rospy.sleep(.1)
+        #rospy.loginfo(ar_data.markers)
+        #rospy.loginfo(ar_data)
+        #rospy.loginfo(len(ar_data.markers))
 
-
-    if len(ar_data.markers) >= 4:
-        fuck = fuck + 1
-        t0 = ar_data.markers[0].pose.pose.position
-        t1 = ar_data.markers[1].pose.pose.position
-        t2 = ar_data.markers[2].pose.pose.position
-        t3 = ar_data.markers[3].pose.pose.position
-
-        quat_0 = ar_data.markers[0].pose.pose.orientation
-        quat_1 = ar_data.markers[1].pose.pose.orientation
-        quat_2 = ar_data.markers[2].pose.pose.orientation
-        quat_3 = ar_data.markers[3].pose.pose.orientation
-
-        a, yaw_0, b = quaternion_to_euler_angle(quat_0.w, quat_0.x, quat_0.y, quat_0.z)
-        a, yaw_1, b = quaternion_to_euler_angle(quat_1.w, quat_1.x, quat_1.y, quat_1.z)
-        a, yaw_2, b = quaternion_to_euler_angle(quat_2.w, quat_2.x, quat_2.y, quat_2.z)
-        a, yaw_3, b = quaternion_to_euler_angle(quat_3.w, quat_3.x, quat_3.y, quat_3.z)
-
-        #rospy.loginfo(["yaw avg: ", np.mean([yaw_0, yaw_1, yaw_2, yaw_3])])
-        yaw = np.mean([yaw_0, yaw_1, yaw_2, yaw_3])
-
-        cy = -1*(t0.x + t1.x + t2.x + t3.x)/4
-        cz = (t0.y + t1.y + t2.y + t3.y)/4
-        cx = (t0.z + t1.z + t2.z + t3.z)/4
-
-        c = np.array([cx, cy, cz])
-
-    # if rotation is quoternion, convert to matrix
-        if len(rot) == 4:
-            rot = quatToRot(rot[0], rot[1], rot[2], rot[3])
-            center = np.dot(rot, c) + trans #might need to adjust
+        #rospy.loginfo(['in callback X', adjX, ' Y', adjY, ' Z', adjHeight, ' Marker', markerFlag])
 
 
-        centerx = c[0]
-        centery = c[1]
-        centerz = c[2]
-        #rospy.loginfo(cz)
-        center_pub.publish(Vector3(centerx,centery,centerz))
-        mean_center_x.append(centerx)
-        mean_center_y.append(centery)
-        mean_center_z.append(centerz)
-        mean_center_yaw.append(yaw)
-        drone.update(np.mean(mean_center_x),np.mean(mean_center_y) , np.mean(mean_center_z), np.mean(mean_center_yaw))
+        if len(ar_data.markers) >= 4:
+            fuck = fuck + 1
+            cmd_vel.linear.x = 0
+            cmd_vel.linear.y = 0
+            cmd_vel.linear.z = 0
+            cmd_vel.angular.z = 0
+            t0 = ar_data.markers[0].pose.pose.position
+            t1 = ar_data.markers[1].pose.pose.position
+            t2 = ar_data.markers[2].pose.pose.position
+            t3 = ar_data.markers[3].pose.pose.position
 
-#        rospy.loginfo('current stage: ' + str(drone.stage) + ' current vel: ' + str(drone.get_vel()))
+            quat_0 = ar_data.markers[0].pose.pose.orientation
+            quat_1 = ar_data.markers[1].pose.pose.orientation
+            quat_2 = ar_data.markers[2].pose.pose.orientation
+            quat_3 = ar_data.markers[3].pose.pose.orientation
 
-        reset_fuck = 0
-        markerFlag = 1
-        cmd_vel.angular.z  = 0.0
-        mean_vel_x = (mean_vel_x + drone.get_vel()[0])
-        mean_vel_y = (mean_vel_y + drone.get_vel()[1])
-        mean_vel_z = (mean_vel_z + drone.get_vel()[2])
-        mean_vel_yaw = (mean_vel_yaw + drone.get_vel()[3])
+            a, yaw_0, b = quaternion_to_euler_angle(quat_0.w, quat_0.x, quat_0.y, quat_0.z)
+            a, yaw_1, b = quaternion_to_euler_angle(quat_1.w, quat_1.x, quat_1.y, quat_1.z)
+            a, yaw_2, b = quaternion_to_euler_angle(quat_2.w, quat_2.x, quat_2.y, quat_2.z)
+            a, yaw_3, b = quaternion_to_euler_angle(quat_3.w, quat_3.x, quat_3.y, quat_3.z)
 
-        if fuck == 20:
-            rospy.loginfo('current stage: ' + str(drone.stage) + ' current vel: ' + str(drone.get_vel()) + 'current yaw' + str(yaw) )
-            fuck = 0
-            cmd_vel.linear.x = (mean_vel_x/20)
-            cmd_vel.linear.y = (mean_vel_y/20)
-            cmd_vel.linear.z = (mean_vel_z/20)
-            cmd_vel.angular.z = (mean_vel_yaw/20)
-            vel_pub_test.publish(cmd_vel)
-            mean_vel_x = 0
-            mean_vel_y = 0
-            mean_vel_z = 0
-            mean_vel_yaw = 0
+            #rospy.loginfo(["yaw avg: ", np.mean([yaw_0, yaw_1, yaw_2, yaw_3])])
+            yaw = np.mean([yaw_0, yaw_1, yaw_2, yaw_3])
 
-            #rospy.sleep(0.1)
+            cy = -1*(t0.x + t1.x + t2.x + t3.x)/4
+            cz = (t0.y + t1.y + t2.y + t3.y)/4
+            cx = (t0.z + t1.z + t2.z + t3.z)/4
 
+            c = np.array([cx, cy, cz])
 
-        if drone.stage == 1:
-            vel_pub.publish(cmd_vel)
-
-    elif len(ar_data.markers) >= 3:
-        fuck = fuck + 1
-        t0 = ar_data.markers[0].pose.pose.position
-        t1 = ar_data.markers[1].pose.pose.position
-        t2 = ar_data.markers[2].pose.pose.position
-        #t3 = ar_data.markers[3].pose.pose.position
-
-        quat_0 = ar_data.markers[0].pose.pose.orientation
-        quat_1 = ar_data.markers[1].pose.pose.orientation
-        quat_2 = ar_data.markers[2].pose.pose.orientation
-        #quat_3 = ar_data.markers[3].pose.pose.orientation
-
-        a, yaw_0, b = quaternion_to_euler_angle(quat_0.w, quat_0.x, quat_0.y, quat_0.z)
-        a, yaw_1, b = quaternion_to_euler_angle(quat_1.w, quat_1.x, quat_1.y, quat_1.z)
-        a, yaw_2, b = quaternion_to_euler_angle(quat_2.w, quat_2.x, quat_2.y, quat_2.z)
-        #a, yaw_3, b = quaternion_to_euler_angle(quat_3.w, quat_3.x, quat_3.y, quat_3.z)
-
-        #rospy.loginfo(["yaw avg: ", np.mean([yaw_0, yaw_1, yaw_2, yaw_3])])
-
-        # TODO lets make center great again %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        yaw = np.mean([yaw_0, yaw_1, yaw_2])
-
-        # find the ones which are in the same x position
-        difference = np.inf
-        if abs(t0.x - t1.x) < difference:
-            difference = abs(t0.x - t1.x)
-            pair = (t0, t1)
-            other = t2
-        if abs(t0.x - t2.x) < difference:
-            difference = abs(t0.x - t2.x)
-            pair = (t0, t2)
-            other = t1
-        if abs(t1.x - t2.x) < difference:
-            difference = abs(t1.x - t2.x)
-            pair = (t1, t2)
-            other = t0
-        # compute center position
-        cy = -1*(pair[0].x + other.x)/2
-        cz = (pair[0].y + pair[1].y)/2
-        cx = (pair[0].z + pair[1].z)/2
-        c = np.array([cx, cy, cz])
-
-    # if rotation is quoternion, convert to matrix
-        if len(rot) == 4:
-            rot = quatToRot(rot[0], rot[1], rot[2], rot[3])
-            center = np.dot(rot, c) + trans #might need to adjust
-        centerx = c[0]
-        centery = c[1]
-        centerz = c[2]
-        #rospy.loginfo(cz)
-        center_pub.publish(Vector3(centerx,centery,centerz))
-        mean_center_x.append(centerx)
-        mean_center_y.append(centery)
-        mean_center_z.append(centerz)
-        mean_center_yaw.append(yaw)
-        drone.update(np.mean(mean_center_x),np.mean(mean_center_y) , np.mean(mean_center_z), np.mean(mean_center_yaw))
-
-#        rospy.loginfo('current stage: ' + str(drone.stage) + ' current vel: ' + str(drone.get_vel()))
-
-        reset_fuck = 0
-        markerFlag = 1
-        cmd_vel.angular.z  = 0.0
-        mean_vel_x = (mean_vel_x + drone.get_vel()[0])
-        mean_vel_y = (mean_vel_y + drone.get_vel()[1])
-        mean_vel_z = (mean_vel_z + drone.get_vel()[2])
-        mean_vel_yaw = (mean_vel_yaw + drone.get_vel()[3])
-
-        if fuck == 20:
-            rospy.loginfo('current stage: ' + str(drone.stage) + ' current vel: ' + str(drone.get_vel()))
-            fuck = 0
-            cmd_vel.linear.x = (mean_vel_x/20)
-            cmd_vel.linear.y = (mean_vel_y/20)
-            cmd_vel.linear.z = (mean_vel_z/20)
-            cmd_vel.angular.z = (mean_vel_yaw/20)
-            vel_pub_test.publish(cmd_vel)
-            mean_vel_x = 0
-            mean_vel_y = 0
-            mean_vel_z = 0
-            mean_vel_yaw = 0
+        # if rotation is quoternion, convert to matrix
+            if len(rot) == 4:
+                rot = quatToRot(rot[0], rot[1], rot[2], rot[3])
+                center = np.dot(rot, c) + trans #might need to adjust
 
 
+            centerx = c[0]
+            centery = c[1]
+            centerz = c[2]
+            #rospy.loginfo(cz)
+            center_pub.publish(Vector3(centerx,centery,centerz))
+            mean_center_x.append(centerx)
+            mean_center_y.append(centery)
+            mean_center_z.append(centerz)
+            mean_center_yaw.append(yaw)
+            drone.update(np.mean(mean_center_x),np.mean(mean_center_y) , np.mean(mean_center_z), np.mean(mean_center_yaw))
 
-        if drone.stage == 1:
-            vel_pub.publish(cmd_vel)
+    #        rospy.loginfo('current stage: ' + str(drone.stage) + ' current vel: ' + str(drone.get_vel()))
 
-    else:
-        reset_fuck = reset_fuck + 1
-        if reset_fuck == 10:
-            markerFlag = 0
             reset_fuck = 0
-            drone.__init__()
-            cmd_vel.linear.x = drone.get_vel()[0]
-            cmd_vel.linear.y = drone.get_vel()[1]
-            cmd_vel.linear.z = drone.get_vel()[2]
-            vel_pub_test.publish(cmd_vel)
-            #rospy.sleep(0.1) #need to adjust %%%%%%%%%%%%%%%%
+            markerFlag = 1
+            cmd_vel.angular.z  = 0.0
+            mean_vel_x = (mean_vel_x + drone.get_vel()[0])
+            mean_vel_y = (mean_vel_y + drone.get_vel()[1])
+            mean_vel_z = (mean_vel_z + drone.get_vel()[2])
+            mean_vel_yaw = (mean_vel_yaw + drone.get_vel()[3])
+
+            if fuck == 20:
+                rospy.loginfo('current stage: ' + str(drone.stage) + ' current vel: ' + str(drone.get_vel()) + 'current yaw' + str(yaw) )
+                fuck = 0
+                cmd_vel.linear.x = (mean_vel_x/20)
+                cmd_vel.linear.y = (mean_vel_y/20)
+                cmd_vel.linear.z = (mean_vel_z/20)
+                cmd_vel.angular.z = (mean_vel_yaw/20)
+                vel_pub_test.publish(cmd_vel)
+                mean_vel_x = 0
+                mean_vel_y = 0
+                mean_vel_z = 0
+                mean_vel_yaw = 0
+                #if drone.stage == 1:
+                vel_pub.publish(cmd_vel)
+                #rospy.sleep(0.1)
+
+        elif len(ar_data.markers) >= 3:
+            fuck = fuck + 1
+
+            cmd_vel.linear.x = 0
+            cmd_vel.linear.y = 0
+            cmd_vel.linear.z = 0
+            cmd_vel.angular.z = 0
+
+            t0 = ar_data.markers[0].pose.pose.position
+            t1 = ar_data.markers[1].pose.pose.position
+            t2 = ar_data.markers[2].pose.pose.position
+            #t3 = ar_data.markers[3].pose.pose.position
+
+            quat_0 = ar_data.markers[0].pose.pose.orientation
+            quat_1 = ar_data.markers[1].pose.pose.orientation
+            quat_2 = ar_data.markers[2].pose.pose.orientation
+            #quat_3 = ar_data.markers[3].pose.pose.orientation
+
+            a, yaw_0, b = quaternion_to_euler_angle(quat_0.w, quat_0.x, quat_0.y, quat_0.z)
+            a, yaw_1, b = quaternion_to_euler_angle(quat_1.w, quat_1.x, quat_1.y, quat_1.z)
+            a, yaw_2, b = quaternion_to_euler_angle(quat_2.w, quat_2.x, quat_2.y, quat_2.z)
+            #a, yaw_3, b = quaternion_to_euler_angle(quat_3.w, quat_3.x, quat_3.y, quat_3.z)
+
+            #rospy.loginfo(["yaw avg: ", np.mean([yaw_0, yaw_1, yaw_2, yaw_3])])
+
+            # TODO lets make center great again %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+            yaw = np.mean([yaw_0, yaw_1, yaw_2])
+
+            # find the ones which are in the same x position
+            difference = np.inf
+            if abs(t0.x - t1.x) < difference:
+                difference = abs(t0.x - t1.x)
+                pair = (t0, t1)
+                other = t2
+            if abs(t0.x - t2.x) < difference:
+                difference = abs(t0.x - t2.x)
+                pair = (t0, t2)
+                other = t1
+            if abs(t1.x - t2.x) < difference:
+                difference = abs(t1.x - t2.x)
+                pair = (t1, t2)
+                other = t0
+            # compute center position
+            cy = -1*(pair[0].x + other.x)/2
+            cz = (pair[0].y + pair[1].y)/2
+            cx = (pair[0].z + pair[1].z)/2
+            c = np.array([cx, cy, cz])
+
+        # if rotation is quoternion, convert to matrix
+            if len(rot) == 4:
+                rot = quatToRot(rot[0], rot[1], rot[2], rot[3])
+                center = np.dot(rot, c) + trans #might need to adjust
+            centerx = c[0]
+            centery = c[1]
+            centerz = c[2]
+            #rospy.loginfo(cz)
+            center_pub.publish(Vector3(centerx,centery,centerz))
+            mean_center_x.append(centerx)
+            mean_center_y.append(centery)
+            mean_center_z.append(centerz)
+            mean_center_yaw.append(yaw)
+            drone.update(np.mean(mean_center_x),np.mean(mean_center_y) , np.mean(mean_center_z), np.mean(mean_center_yaw))
+
+    #        rospy.loginfo('current stage: ' + str(drone.stage) + ' current vel: ' + str(drone.get_vel()))
+
+            reset_fuck = 0
+            markerFlag = 1
+            cmd_vel.angular.z  = 0.0
+            mean_vel_x = (mean_vel_x + drone.get_vel()[0])
+            mean_vel_y = (mean_vel_y + drone.get_vel()[1])
+            mean_vel_z = (mean_vel_z + drone.get_vel()[2])
+            mean_vel_yaw = (mean_vel_yaw + drone.get_vel()[3])
+
+            if fuck == 20:
+                rospy.loginfo('current stage: ' + str(drone.stage) + ' current vel: ' + str(drone.get_vel()))
+                fuck = 0
+                cmd_vel.linear.x = (mean_vel_x/20)
+                cmd_vel.linear.y = (mean_vel_y/20)
+                cmd_vel.linear.z = (mean_vel_z/20)
+                cmd_vel.angular.z = (mean_vel_yaw/20)
+                vel_pub_test.publish(cmd_vel)
+                mean_vel_x = 0
+                mean_vel_y = 0
+                mean_vel_z = 0
+                mean_vel_yaw = 0
+                #if drone.stage == 1:
+                vel_pub.publish(cmd_vel)
+
+
+
+        else:
+            reset_fuck = reset_fuck + 1
+            cmd_vel.linear.x = 0
+            cmd_vel.linear.y = 0
+            cmd_vel.linear.z = 0
+            cmd_vel.angular.z = 0
+
+            if reset_fuck == 100:
+
+                if drone.stage == 3:
+                    #we're done hope for the best.
+                    done = True
+                    fly_through_and_stop()
+
+
+
+
+                rospy.loginfo('reseting')
+                markerFlag = 0
+                reset_fuck = 0
+                drone.__init__()
+                cmd_vel.linear.x = drone.get_vel()[0]
+                cmd_vel.linear.y = drone.get_vel()[1]
+                cmd_vel.linear.z = drone.get_vel()[2]
+                vel_pub.publish(cmd_vel)
+                #rospy.sleep(0.1) #need to adjust %%%%%%%%%%%%%%%%
 
 def nav_callback(data):
     nav_data = data
