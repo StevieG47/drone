@@ -124,9 +124,10 @@ def main():
     rospy.loginfo("Drone taking off")
     takeoff_pub.publish(empty)
     rospy.sleep(5.0)
-    cmd_vel.linear.z  = 0.3
+    #TODO May have t0 change the speed and time
+    cmd_vel.linear.z  = 0.2
     vel_pub.publish(cmd_vel)
-    rospy.sleep(2.5)
+    rospy.sleep(2.0)
     cmd_vel.linear.z  = 0.0
     vel_pub.publish(cmd_vel)
 
@@ -150,11 +151,12 @@ def main():
                 rospy.loginfo("Searching")
                 # TODO change the = to fix initial angle
                 if np.mean(mean_center_yaw) >= 0:
-                    cmd_vel.angular.z  = -0.2
-                elif np.mean(mean_center_yaw) < 0:
-                    cmd_vel.angular.z  = 0.2
-                else:
                     cmd_vel.angular.z  = -0.1
+                elif np.mean(mean_center_yaw) < 0:
+                    cmd_vel.angular.z  = 0.1
+                else:
+                    # TODO may have to change
+                    cmd_vel.angular.z  = 0.1
 
                 rospy.loginfo("Rotating")
                 vel_pub.publish(cmd_vel)
