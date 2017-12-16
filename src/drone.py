@@ -72,9 +72,9 @@ class Drone:
         self.stage_x_buffer = .5
         self.stage = 0
 
-        self.x_goal_stage_1 = 4
-        self.x_goal_stage_2 = 3
-        self.x_goal_stage_3 = 2.5
+        self.x_goal_stage_1 = 3 #4
+        self.x_goal_stage_2 = 2.5 #3
+        self.x_goal_stage_3 = 2.0 #2.5
 
         self.y_goal = 0
         self.z_goal = 0
@@ -92,13 +92,13 @@ class Drone:
 
         self.y_pos_acc_stage_3 = .05
         self.x_pos_acc_stage_3 = 0
-        self.z_pos_acc_stage_3 = .05
+        self.z_pos_acc_stage_3 = .25
         self.yaw_pos_acc_stage_3 = 10
         self.yaw_acc_stage_3 = 10
 
         self.speed_stage_1 = .1
-        self.speed_stage_2 = .02
-        self.speed_stage_3 = .01
+        self.speed_stage_2 = .03
+        self.speed_stage_3 = .03
 
     def set_vel(self,y,x,z, yaw):
         self.vel_y = y
@@ -240,7 +240,7 @@ class Drone:
 
 
             elif self.stage == 3:
-                self.vel_x = 0
+                self.vel_x = 0.02
                 self.vel_y = 0
                 self.vel_z = 0
                 self.vel_yaw = 0
